@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Emergency Queue Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="app-header">
+        <div class="header-content">
+            <h1>Emergency Queue</h1>
+            <div class="header-right">
+                <span class="live-indicator">
+                    <span class="dot"></span> Live
+                </span>
+                <div class="header-stats">
+                    Queue: <span id="header-queue-count">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-layout">
+        <div id="left-panel">
+            <div class="stats-grid">
+                <div class="stat-card stat-total" id="stat-total">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Total Waiting</div>
+                </div>
+                <div class="stat-card stat-critical" id="stat-critical">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Critical</div>
+                </div>
+                <div class="stat-card stat-serious" id="stat-serious">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Serious</div>
+                </div>
+                <div class="stat-card stat-moderate" id="stat-moderate">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Moderate</div>
+                </div>
+                <div class="stat-card stat-mild-minor" id="stat-mild-minor">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Mild+Minor</div>
+                </div>
+                <div class="stat-card stat-avg-wait" id="stat-avg-wait">
+                    <div class="stat-value">0m</div>
+                    <div class="stat-label">Avg Wait</div>
+                </div>
+                <div class="stat-card stat-treated" id="stat-treated">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Treated Today</div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Register Patient</h2>
+                <form id="registration-form" style="display: none;">
+                    <div class="form-group">
+                        <label for="inp-name">Name *</label>
+                        <input type="text" id="inp-name" placeholder="Full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="inp-age">Age *</label>
+                        <input type="number" id="inp-age" min="1" max="120" placeholder="1-120" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="inp-gender">Gender *</label>
+                        <select id="inp-gender" required>
+                            <option value="">-- Select --</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="inp-condition">Condition/Symptoms *</label>
+                        <textarea id="inp-condition" placeholder="Describe symptoms" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="button" id="btn-ai-suggest" class="btn-ai">Get AI Suggestion</button>
+                    </div>
+
+                    <div id="ai-suggestion-box" class="hidden">
+                        <div class="form-group">
+                            <label>AI Priority Suggestion</label>
+                            <div id="ai-priority-display">
+                                <strong id="ai-priority-text">---</strong>
+                            </div>
+                            <div id="ai-reasoning-text" style="font-size: 0.85rem; margin-top: 4px; color: var(--text-muted);"></div>
+                            <button type="button" id="btn-accept-ai" class="btn-accept">Accept AI Suggestion</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="override-select">Final Priority (Doctor's Decision) *</label>
+                        <select id="override-select" required>
+                            <option value="">-- Select priority --</option>
+                            <option value="5">5 - Critical (life-threatening)</option>
+                            <option value="4">4 - Serious (severe but stable)</option>
+                            <option value="3">3 - Moderate (needs timely attention)</option>
+                            <option value="2">2 - Mild (non-urgent)</option>
+                            <option value="1">1 - Minor (routine)</option>
+                        </select>
+                    </div>
+
+                    <div id="priority-display-line" style="margin: 12px 0; padding: 8px; background: var(--bg-input); border-radius: 4px; font-size: 0.85rem; color: var(--text-muted);">
+                        Select a priority above
+                    </div>
+
+                    <input type="hidden" id="final-priority" value="">
+                    <input type="hidden" id="final-ai-suggested" value="0">
+                    <input type="hidden" id="final-ai-reasoning" value="">
+
+                    <div id="form-error" class="hidden error-text" style="margin: 8px 0; font-size: 0.85rem;"></div>
+
+                    <button type="submit" id="btn-register" class="btn-primary" style="width: 100%;">Register Patient</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="right-panel">
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <h2>Waiting Queue (<span id="queue-count-badge">0</span>)</h2>
+                    <button type="button" id="btn-admit-next" class="btn-admit">Admit Next Patient</button>
+                </div>
+
+                <div class="search-filter-bar">
+                    <input type="text" id="search-input" placeholder="Search by name..." class="search-input">
+                    <select id="filter-priority" class="filter-select">
+                        <option value="">All Priorities</option>
+                        <option value="5">Critical (5)</option>
+                        <option value="4">Serious (4)</option>
+                        <option value="3">Moderate (3)</option>
+                        <option value="2">Mild (2)</option>
+                        <option value="1">Minor (1)</option>
+                    </select>
+                </div>
+
+                <div id="queue-list"></div>
+                <div id="queue-empty-msg" style="text-align: center; color: var(--text-muted); padding: 20px; display: none;">
+                    No patients in queue
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+                <button type="button" id="btn-toggle-history" class="btn-secondary" style="width: 100%; margin-bottom: 12px;">
+                    Show Admitted Today (0)
+                </button>
+                <div id="history-list" class="hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="success-toast" id="toast" style="display: none;"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>
