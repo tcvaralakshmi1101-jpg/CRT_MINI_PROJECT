@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime, timezone
 
 PRIORITY_LABELS = {5:"Critical", 4:"Serious", 3:"Moderate", 2:"Mild", 1:"Minor"}
+LONG_WAIT_MINUTES = 180
 
 @dataclass
 class Patient:
@@ -21,6 +22,8 @@ class Patient:
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict representation of this patient."""
+        arrival_dt = self.arrival_datetime()
+        wait_minutes = max(0, int((datetime.now(timezone.utc) - arrival_dt).total_seconds() // 60))
         return {
             "id"                   : self.id,
             "name"                 : self.name,
@@ -33,10 +36,19 @@ class Patient:
             "ai_reasoning"         : self.ai_reasoning,
             "arrival_time"         : self.arrival_time if isinstance(self.arrival_time, str)
                                      else self.arrival_time.isoformat(),
+            "wait_minutes"         : wait_minutes,
+            "needs_attention"      : wait_minutes >= LONG_WAIT_MINUTES,
             "status"               : self.status,
             "admitted_at"          : self.admitted_at if isinstance(self.admitted_at, str)
                                      else (self.admitted_at.isoformat() if self.admitted_at else None)
         }
+
+    def arrival_datetime(self) -> datetime:
+        if isinstance(self.arrival_time, datetime):
+            return self.arrival_time.astimezone(timezone.utc) if self.arrival_time.tzinfo else self.arrival_time.replace(tzinfo=timezone.utc)
+        if isinstance(self.arrival_time, str):
+            return datetime.fromisoformat(self.arrival_time.replace("Z", "+00:00"))
+        raise TypeError("Unsupported arrival_time value")
 
     @classmethod
     def from_row(cls, row: dict) -> "Patient":

@@ -34,6 +34,7 @@ When a patient arrives, doctors can:
 - ✅ **Dual-Write Strategy** — DB = source of truth, Heap = speed layer
 - ✅ **REST API** — 10 fully documented endpoints
 - ✅ **Dark Clinical UI** — Responsive, real-time updates, search & filter
+- ✅ **Wait-Time Aging** — Long-waiting patients are automatically escalated to prevent starvation
 - ✅ **45 pytest Unit + Integration Tests** — 100% code coverage
 - ✅ **Sample Data** — 10 realistic Indian patient scenarios
 - ✅ **Audit Logging** — Every action (register, admit, update, remove) tracked
@@ -136,7 +137,8 @@ hospital-queue/
 │   ├── database/
 │   │   ├── schema.sql               ← PostgreSQL DDL (idempotent)
 │   │   ├── connection.py            ← psycopg2 pool + get_conn()
-│   │   └── seed.py                  ← Load sample_data/sample_patients.json
+│   │   ├── seed.py                  ← Load sample_data/sample_patients.json
+│   │   └── seed_sample_data.py      ← Reset schema and load sample patients
 │   │
 │   ├── models/
 │   │   ├── patient.py               ← Patient dataclass + to_dict()
@@ -166,6 +168,7 @@ hospital-queue/
 │           └── app.js               ← Vanilla JS (fetch + DOM manipulation)
 │
 ├── sample_data/
+│   ├── README.md                    ← How to use the sample data
 │   ├── sample_patients.json         ← 10 realistic Indian patient records
 │   └── expected_queue_order.json    ← Verification output
 │
@@ -235,6 +238,10 @@ FLASK_PORT=5000
 
 # Test Database (separate — never use production DB for tests)
 TEST_DB_NAME=hospital_queue_test
+
+# Queue aging / starvation protection
+QUEUE_AGING_INTERVAL_MINUTES=120
+QUEUE_AGING_ALERT_MINUTES=180
 ```
 
 ### 6. Start Server
@@ -245,17 +252,22 @@ python backend/run.py
 
 Open browser: **http://localhost:5000**
 
-### 7. (Optional) Load Sample Data
+### 7. Load Sample Data
 
 ```bash
-python -c "
-from backend.database.seed import seed_sample_data
-from backend.services.patient_service import rebuild_heap
-seed_sample_data()
-rebuild_heap()
-print('✓ Loaded 10 sample patients!')
-"
+python backend/seed_sample_data.py
 ```
+
+### 8. How It Works In Practice
+
+1. Open the app in the browser.
+2. Register patients at triage with symptoms and a final doctor-set priority.
+3. Use **Get AI Suggestion** if you want a triage recommendation first.
+4. Click **Admit Next Patient** to admit the highest-priority waiting patient.
+5. Update priority or remove a patient if their condition changes.
+6. Review admitted patients in the history panel.
+
+The queue uses priority first, then waiting-time aging to reduce starvation for low-priority patients.
 
 ## 🧪 Running Tests
 
@@ -272,7 +284,7 @@ pytest backend/tests/test_api.py -v
 pytest backend/tests/ --cov=backend --cov-report=html
 ```
 
-All 45 tests must pass ✓ before deployment.
+All 45 tests should pass before deployment.
 
 ## 📚 Data Structures Deep Dive
 

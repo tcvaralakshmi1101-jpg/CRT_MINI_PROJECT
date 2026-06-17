@@ -272,6 +272,32 @@ RESULT: ZERO DATA LOSS
 
 ---
 
+## Queue Aging and Starvation Protection
+
+The service layer now includes a fairness mechanism so very long-waiting patients are not stuck behind newer arrivals forever.
+
+Behavior:
+- `Patient.to_dict()` exposes `wait_minutes` and `needs_attention`
+- `rebuild_heap()` applies waiting-time aging before reloading the in-memory heap from PostgreSQL
+- `register_patient()`, `get_waiting_queue()`, `admit_next_patient()`, `update_priority()`, `remove_patient()`, `get_stats()`, and `get_history()` rebuild the heap before returning data
+- Every `QUEUE_AGING_INTERVAL_MINUTES` minutes of waiting, a patient is escalated by 1 priority level, up to priority 5
+- After `QUEUE_AGING_ALERT_MINUTES`, the frontend can mark the patient as needing attention
+
+Default environment values:
+- `QUEUE_AGING_INTERVAL_MINUTES=120`
+- `QUEUE_AGING_ALERT_MINUTES=180`
+
+Operational result:
+- Critical patients still stay at the top
+- Long-waiting lower-priority patients gradually move upward
+- Doctors still control the final priority and can override suggestions anytime
+
+Sample data support:
+- `backend/seed_sample_data.py` resets the schema and loads `sample_data/sample_patients.json`
+- `sample_data/expected_queue_order.json` documents the expected waiting order after seeding
+
+---
+
 ## Max-Heap Internals
 
 ### Visual Structure

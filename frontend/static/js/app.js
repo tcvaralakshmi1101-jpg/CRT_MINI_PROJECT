@@ -63,6 +63,9 @@ function createPatientCard(patient) {
         patient.ai_suggested_priority !== patient.priority
         ? `<span class="ai-diff-badge">AI: P${patient.ai_suggested_priority}</span>`
         : "";
+    const waitAlert = patient.needs_attention
+        ? `<span class="ai-diff-badge" style="background:#DC2626;">Long wait: ${patient.wait_minutes}m</span>`
+        : "";
 
     const arrivalTime = new Date(patient.arrival_time);
     const timeStr = arrivalTime.toLocaleTimeString("en-US", {
@@ -75,7 +78,7 @@ function createPatientCard(patient) {
     return `
         <div class="patient-card priority-${patient.priority}" data-id="${escapeHtml(patient.id)}">
             <div class="priority-badge ${priorityInfo.cls}">
-                P${patient.priority} - ${priorityInfo.label} ${aiDiffBadge}
+                P${patient.priority} - ${priorityInfo.label} ${aiDiffBadge} ${waitAlert}
             </div>
             <div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(patient.name)}</div>
             <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">
