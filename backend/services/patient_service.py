@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from psycopg2.extras import RealDictCursor
 
-from backend.database.connection import get_conn, release_conn
+from backend.database.connection import get_conn, release_conn, using_sqlite
 from backend.models.patient import Patient, PRIORITY_LABELS
 from backend.models.priority_queue import HospitalPriorityQueue
 
@@ -288,6 +288,34 @@ def get_stats() -> dict:
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if using_sqlite():
+                cur.execute("SELECT priority, arrival_time FROM patients WHERE status = 'waiting'")
+                waiting = cur.fetchall()
+                cur.execute("SELECT admitted_at FROM patients WHERE status = 'admitted'")
+                admitted = cur.fetchall()
+
+                by_priority = {str(priority): 0 for priority in range(1, 6)}
+                total_wait = 0
+                for row in waiting:
+                    by_priority[str(row["priority"])] += 1
+                    total_wait += _wait_minutes_since(row["arrival_time"])
+
+                today = datetime.now(timezone.utc).date()
+                treated_today = sum(
+                    1
+                    for row in admitted
+                    if row["admitted_at"]
+                    and _to_datetime(row["admitted_at"]).date() == today
+                )
+
+                return {
+                    "total": len(waiting),
+                    "by_priority": by_priority,
+                    "average_wait_minutes": round(total_wait / len(waiting), 1) if waiting else 0,
+                    "treated_today": treated_today,
+                    "queue_size": _queue.size(),
+                }
+
             cur.execute(
                 """
                 SELECT
